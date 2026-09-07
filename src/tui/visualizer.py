@@ -85,9 +85,54 @@ class VoiceVisualizerApp:
     def run(self) -> None:
         if self.demo:
             return demo_loop()
-        # Phase 1: from textual.app import App ... live mic + Deepgram captions
-        raise NotImplementedError(
-            "Live mode lands in Phase 1. Try: python -m src.tui.visualizer --demo")
+        try:
+            return live_loop()  # real mic RMS + FFT (sounddevice + numpy)
+        except Exception as e:  # noqa: BLE001 - no mic/libs in this env
+            print(f"[live unavailable: {e} — falling back to demo synth]")
+            return demo_loop()
+
+
+def live_loop(fps: int = 15) -> None:
+    """Live mic mode: real RMS energy + real FFT spectrum drive the renderers.
+
+    Requires: sounddevice, numpy. Raises if no mic/default input exists.
+    """
+    import os
+
+    import numpy as np
+    import sounddevice as sd
+
+    state = {"energy": 0.0, "mags": [0.0] * 32}
+
+    def on_audio(indata, frames, time_info, status):
+        mono = np.asarray(indata[:, 0], dtype=np.float32)
+        rms = float(np.sqrt(np.mean(mono ** 2)))
+        state["energy"] = min(1.0, rms * 6)
+        spec = np.abs(np.real(np.fft.rfft(mono * np.hanning(len(mono)))))
+        spec /= max(spec.max(), 1e-6)
+        idx = (np.logspace(0, np.log10(len(spec)), 33)).astype(int)
+        state["mags"] = [float(spec[a:b].max()) if b > a else 0.0
+                         for a, b in zip(idx[:-1], idx[1:])]
+
+    print("live mic mode — Ctrl+C to quit")
+    with sd.InputStream(samplerate=16000, channels=1, blocksize=1600,
+                        callback=on_audio):
+        t0 = time.time()
+        try:
+            while True:
+                t = time.time() - t0
+                e = state["energy"]
+                os.system("cls" if os.name == "nt" else "clear")
+                print("═" * 64 + "\n  ADHD-VOICE-TASKER · TUI  ● LIVE MIC\n" + "═" * 64)
+                for row in sine_frame(60, t, max(0.05, e)):
+                    print("  " + row)
+                print("─" * 64 + "  SPECTROGRAM (live FFT)")
+                for line in heat_col(state["mags"]):
+                    print("  " + line)
+                print("─" * 64 + f"  energy {e:0.2f} · finals → fast-LLM loop")
+                time.sleep(1 / fps)
+        except KeyboardInterrupt:
+            print("\nbye 👋")
 
 
 def main() -> None:

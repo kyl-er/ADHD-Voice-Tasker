@@ -68,6 +68,8 @@
   .pill.ops{background:rgba(167,139,250,.14); color:var(--violet); border:1px solid rgba(167,139,250,.4)}
   .pill.research{background:rgba(244,114,182,.14); color:var(--pink); border:1px solid rgba(244,114,182,.4)}
   .pill.personal{background:rgba(52,211,153,.14); color:var(--green); border:1px solid rgba(52,211,153,.4)}
+  .pill.admin{background:rgba(251,191,36,.14); color:var(--gold); border:1px solid rgba(251,191,36,.4)}
+  .pill.general,.pill.inbox{background:rgba(139,148,173,.14); color:var(--dim); border:1px solid #3b4763}
   .dep{font-size:11px; font-weight:800; background:#2a3350; border:1px solid #3b4763;
     padding:4px 10px; border-radius:999px; color:#cdd6ea}
   .dep small{color:var(--dim); font-weight:600}
@@ -125,7 +127,7 @@
 <div class="app">
   <header>
     <div class="logo">🎙️ Voice<span>Tasker</span></div>
-    <div class="live"><span class="dot"></span> LIVE · nova-3 · cerebras-8b</div>
+    <div class="live" id="livepill"><span class="dot"></span> <span id="livetext">LIVE · local demo</span></div>
   </header>
 
   <nav class="tabs">
@@ -403,14 +405,73 @@ document.addEventListener('keydown', e=>{
 });
 spofin.addEventListener('keydown', e=>{
   if(e.key==='Enter' && spofin.value.trim()){
-    spawnCard({t:spofin.value.trim(), c:'dev', pct:0, el:'0/25m', proj:'Inbox'});
+    const v = spofin.value.trim();
+    if(typeof BACKEND !== 'undefined' && BACKEND){
+      fetch(API+'/api/capture',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({text:v})});
+    } else spawnCard({t:v, c:'dev', pct:0, el:'0/25m', proj:'Inbox'});
     spofin.value=''; spof.classList.remove('show');
     document.querySelector('[data-v="tasks"]').click();
   }
 });
 
-/* auto-start the voice demo */
-setTimeout(()=>typeStep(0), 900);
+/* ============ Backend link (FastAPI) — falls back to local demo ============ */
+const API = ''; // same origin: uvicorn serves this file at /
+let BACKEND = false, WS = null;
+const id2title = {}, apiCards = {};
+async function backendInit(){
+  try{
+    const h = await (await fetch(API+'/api/health')).json();
+    if(!h || !h.mode) throw 0;
+    BACKEND = true;
+    document.getElementById('livetext').textContent = `LIVE · ${h.mode.stt} · ${h.mode.llm}`;
+    const tasks = await (await fetch(API+'/api/tasks')).json();
+    tasks.forEach(t=>{ id2title[t.id]=t.title; });
+    tasks.forEach(t=> upsertApiCard(t));
+    renderTimeline();
+    WS = new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
+    WS.onmessage = (ev)=>{
+      const m = JSON.parse(ev.data);
+      if(m.type==='transcript'){
+        cap.textContent = m.text;
+        if(m.kind==='partial'){ speechBoost = 0.35; }
+        else { cap.innerHTML += ' <span style="color:#34d399">✓</span>'; speechBoost = 0; }
+      } else if(m.type==='task.upsert'){
+        id2title[m.task.id]=m.task.title; upsertApiCard(m.task); renderTimeline();
+        document.querySelectorAll('#tasklist .card').forEach(refreshDepLabels);
+      }
+    };
+    document.getElementById('replay').onclick = async ()=>{
+      await fetch(API+'/api/simulate/start', {method:'POST'});
+    };
+    if(!tasks.length) await fetch(API+'/api/simulate/start', {method:'POST'});
+  }catch(e){ setTimeout(()=>typeStep(0), 900); } // no backend → local scripted demo
+}
+function upsertApiCard(t){
+  const proj = t.project_name || 'Inbox';
+  let sec = document.getElementById('sec-'+String(proj).replace(/\W/g,''));
+  if(!sec){ sec=document.createElement('div'); sec.id='sec-'+String(proj).replace(/\W/g,'');
+    sec.innerHTML=`<div class="proj">📦 Project: <b>${proj}</b></div>`; list.appendChild(sec); }
+  const pct = Math.min(100, Math.round((t.elapsed_s/((t.estimate_min||25)*60))*100))||0;
+  let el = apiCards[t.id];
+  if(!el){ el=document.createElement('div'); el.className='card pop'; apiCards[t.id]=el; sec.appendChild(el); }
+  el.dataset.title=t.title; el.dataset.pct=pct; el.dataset.deps=JSON.stringify(t.deps||[]);
+  el.dataset.order=t.dep_order||'';
+  el.innerHTML = cardHTML({t:t.title, c:t.category||'general', chain:null,
+    dep:'', pct, el:`${Math.round((t.elapsed_s||0)/60)}/${t.estimate_min||25}m`});
+  refreshDepLabels(el);
+}
+function refreshDepLabels(el){
+  const deps = JSON.parse(el.dataset.deps||'[]');
+  const known = deps.map(d=>id2title[d]).filter(Boolean);
+  const meta = el.querySelector('.meta'); if(!meta) return;
+  meta.querySelectorAll('.dep-live').forEach(n=>n.remove());
+  if(el.dataset.order) meta.insertAdjacentHTML('beforeend',
+    `<span class="dep dep-live">#${el.dataset.order} in order</span>`);
+  if(known.length) meta.insertAdjacentHTML('beforeend',
+    `<span class="dep dep-live">⛓ waits on: <small>${known.join(', ')}</small></span>`);
+}
+backendInit();
 </script>
 </body>
 </html>

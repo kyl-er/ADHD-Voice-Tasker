@@ -10,12 +10,13 @@
 - [x] TUI visualizer stub, React visualizer module, overlay spec
 - [x] Dispatch + toast + idea-tier stubs
 
-## Phase 1 — Talk → tasks (next)
-- [ ] Wire Deepgram streaming pipeline end-to-end
-- [ ] Fast-loop extraction prompt tuning + JSON repair
-- [ ] FastAPI server + WebSocket fan-out
-- [ ] Web Tasks tab with big blocky cards
-- [ ] TUI visualizer live-mic mode
+## Phase 1 — Talk → tasks ✅ (live)
+- [x] Voice pipeline end-to-end (Deepgram module + simulator; live mic needs key+hardware)
+- [x] Fast-loop extraction (LLM w/ JSON repair + salvage, heuristic fallback, offline)
+- [x] FastAPI server + WebSocket fan-out (serves UI at `/`, 10/10 tests)
+- [x] Web Tasks tab with big blocky cards (live API-driven, WS updates)
+- [x] TUI visualizer live-mic mode (sounddevice+FFT, demo fallback)
+- [ ] Polish queue: idea dedup by meaning, live Deepgram socket test w/ real key
 
 ## Phase 2 — Wow UI
 - [ ] Timeline tab, Ideas S–F tab, Graph tab

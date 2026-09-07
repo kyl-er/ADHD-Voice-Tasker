@@ -73,14 +73,33 @@ class Router:
         raise RuntimeError(f"No LLM available for role={role!r}: {'; '.join(errors)}")
 
     def complete_json(self, role: str, messages: list[dict], **kw) -> dict:
-        """Complete + parse JSON, tolerating ```json fences."""
-        kw.setdefault("response_format", {"type": "json_object"})
-        last = ""
-        try:
-            last = self.complete(role, messages, **kw)
-            return json.loads(last)
-        except Exception:
-            text = last.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1].rsplit("```", 1)[0]
-            return json.loads(text)
+        """Complete + parse JSON across the fallback chain.
+
+        Tolerates ```json fences, leading prose, and providers that reject
+        response_format (retries without it). Raises RuntimeError if every
+        provider fails — callers fall back to heuristics.
+        """
+        errors = []
+        for provider, model in self.chain_for(role):
+            for attempt in (dict(kw, response_format={"type": "json_object"}), dict(kw)):
+                try:
+                    raw = chat(self._client(provider), model, messages, **attempt)
+                    return _parse_json(raw)
+                except Exception as e:  # noqa: BLE001 - next attempt/provider
+                    errors.append(f"{provider}/{model}: {e}")
+        raise RuntimeError(f"No LLM available for role={role!r}: {'; '.join(errors)}")
+
+
+def _parse_json(raw: str) -> dict:
+    text = (raw or "").strip()
+    if text.startswith("```"):  # strip code fences
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+        text = text.rsplit("```", 1)[0].strip()
+    try:
+        return json.loads(text)
+    except ValueError:
+        pass
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:  # salvage first {...} block
+        return json.loads(text[start:end + 1])
+    raise ValueError(f"no JSON object found in: {raw[:200]!r}")

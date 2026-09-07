@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 from typing import Callable
 
-from src.tasks.models import Project, Task
+from src.tasks.models import Idea, Project, Task
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, data TEXT NOT NULL);
@@ -67,3 +67,18 @@ class Store:
         with self._conn() as c:
             rows = c.execute("SELECT data FROM projects").fetchall()
         return [Project.model_validate_json(r[0]) for r in rows]
+
+    # -- ideas -------------------------------------------------------
+    def save_idea(self, idea: Idea) -> Idea:
+        with self._conn() as c:
+            c.execute("INSERT OR REPLACE INTO ideas VALUES (?, ?)",
+                      (idea.id, idea.model_dump_json()))
+        self._emit({"type": "idea.upsert", "idea": idea.model_dump()})
+        return idea
+
+    def list_ideas(self) -> list[Idea]:
+        order = {"S": 0, "A": 1, "B": 2, "C": 3, "D": 4, "F": 5}
+        with self._conn() as c:
+            rows = c.execute("SELECT data FROM ideas").fetchall()
+        ideas = [Idea.model_validate_json(r[0]) for r in rows]
+        return sorted(ideas, key=lambda i: (order.get(i.tier, 3), i.created_at))
