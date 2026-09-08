@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADHD-Voice-Tasker — Live Demo</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121826; --card:#161c2c; --line:#232c42;
+    --txt:#e8edf7; --dim:#8b94ad; --cyan:#22d3ee; --violet:#a78bfa;
+    --pink:#f472b6; --green:#34d399; --gold:#fbbf24; --orange:#fb923c; --red:#f87171;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:radial-gradient(1200px 600px at 50% -10%, #16203a 0%, var(--bg) 60%);
+    color:var(--txt); font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif; min-height:100vh}
+  .app{max-width:1080px; margin:0 auto; padding:28px 20px 60px}
+  header{display:flex; align-items:center; gap:14px; margin-bottom:18px}
+  .logo{font-size:26px; font-weight:900; letter-spacing:-.5px}
+  .logo span{background:linear-gradient(90deg,var(--cyan),var(--violet),var(--pink));
+    -webkit-background-clip:text; background-clip:text; color:transparent}
+  .live{margin-left:auto; display:flex; align-items:center; gap:8px; background:#0f2a1d;
+    border:1px solid #1d5c3a; color:var(--green); font-weight:700; font-size:13px;
+    padding:7px 14px; border-radius:999px}
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--green);
+    box-shadow:0 0 10px var(--green); animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:.35}}
+  .tabs{display:flex; gap:6px; background:var(--panel); border:1px solid var(--line);
+    padding:6px; border-radius:18px; margin-bottom:18px; flex-wrap:wrap}
+  .tab{flex:1; min-width:100px; text-align:center; padding:11px; border-radius:13px; cursor:pointer;
+    font-weight:700; font-size:14px; color:var(--dim); border:none; background:transparent; transition:.2s}
+  .tab:hover{color:var(--txt)}
+  .tab.active{background:linear-gradient(135deg,#164e63,#4c1d95); color:#fff;
+    box-shadow:0 4px 18px rgba(34,211,238,.25)}
+  .panel{background:rgba(18,24,38,.85); border:1px solid var(--line); border-radius:24px;
+    padding:20px; margin-bottom:18px; backdrop-filter:blur(6px)}
+  #viz{width:100%; height:230px; display:block; border-radius:16px; background:#0b0e14}
+  .caption{margin-top:12px; font-family:ui-monospace,Consolas,monospace; font-size:14px;
+    color:var(--cyan); min-height:44px; line-height:1.5}
+  .caption .caret{display:inline-block; width:9px; height:17px; background:var(--cyan);
+    vertical-align:-3px; animation:blink .8s infinite}
+  .vizrow{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap}
+  .btn{background:#1b2438; border:1px solid var(--line); color:var(--txt); font-weight:700;
+    font-size:13px; padding:9px 16px; border-radius:12px; cursor:pointer; transition:.2s}
+  .btn:hover{border-color:var(--cyan); box-shadow:0 0 12px rgba(34,211,238,.25)}
+  .btn.primary{background:linear-gradient(135deg,#0e7490,#6d28d9); border:none}
+  .view{display:none} .view.active{display:block; animation:fade .3s}
+  @keyframes fade{from{opacity:0; transform:translateY(6px)}}
+  /* ---- task cards ---- */
+  .proj{font-size:13px; font-weight:800; color:var(--dim); text-transform:uppercase;
+    letter-spacing:1.5px; margin:6px 4px 12px}
+  .proj b{color:var(--violet)}
+  .card{background:linear-gradient(180deg,#181f31,#141a29); border:1px solid var(--line);
+    border-radius:24px; padding:20px 22px; margin-bottom:14px; min-height:96px;
+    display:flex; gap:16px; align-items:flex-start; transition:.2s}
+  .card:hover{border-color:#33415f; transform:translateY(-1px)}
+  .card.pop{animation:pop .55s cubic-bezier(.2,1.6,.35,1)}
+  @keyframes pop{0%{transform:scale(.88); opacity:0; box-shadow:0 0 0 rgba(34,211,238,0)}
+    60%{box-shadow:0 0 34px rgba(34,211,238,.35)} 100%{transform:scale(1); opacity:1}}
+  .card.done{opacity:.55} .card.done .title{text-decoration:line-through}
+  .check{width:30px; height:30px; border-radius:10px; border:2px solid #3b4763; background:transparent;
+    cursor:pointer; flex-shrink:0; margin-top:2px; font-size:16px; color:#fff; transition:.2s}
+  .check.on{background:linear-gradient(135deg,var(--green),#0ea5e9); border-color:transparent}
+  .body{flex:1; min-width:0}
+  .title{font-size:19px; font-weight:800; letter-spacing:-.2px}
+  .meta{display:flex; gap:8px; margin-top:9px; flex-wrap:wrap; align-items:center}
+  .pill{font-size:11px; font-weight:800; padding:4px 11px; border-radius:999px; letter-spacing:.4px}
+  .pill.dev{background:rgba(34,211,238,.14); color:var(--cyan); border:1px solid rgba(34,211,238,.4)}
+  .pill.ops{background:rgba(167,139,250,.14); color:var(--violet); border:1px solid rgba(167,139,250,.4)}
+  .pill.research{background:rgba(244,114,182,.14); color:var(--pink); border:1px solid rgba(244,114,182,.4)}
+  .pill.personal{background:rgba(52,211,153,.14); color:var(--green); border:1px solid rgba(52,211,153,.4)}
+  .pill.admin{background:rgba(251,191,36,.14); color:var(--gold); border:1px solid rgba(251,191,36,.4)}
+  .pill.general,.pill.inbox{background:rgba(139,148,173,.14); color:var(--dim); border:1px solid #3b4763}
+  .dep{font-size:11px; font-weight:800; background:#2a3350; border:1px solid #3b4763;
+    padding:4px 10px; border-radius:999px; color:#cdd6ea}
+  .dep small{color:var(--dim); font-weight:600}
+  .bar{height:9px; background:#0d1220; border-radius:99px; margin-top:11px; overflow:hidden}
+  .bar i{display:block; height:100%; border-radius:99px;
+    background:linear-gradient(90deg,var(--cyan),var(--violet)); transition:width .5s}
+  .time{font-size:12px; color:var(--dim); font-weight:600}
+  .acts{display:flex; gap:8px; flex-shrink:0}
+  .iconbtn{width:38px; height:38px; border-radius:12px; border:1px solid var(--line);
+    background:#1b2438; color:var(--txt); font-size:15px; cursor:pointer; transition:.2s}
+  .iconbtn:hover{border-color:var(--cyan)}
+  .menu{position:relative}
+  .dropdown{position:absolute; right:0; top:44px; background:#1b2438; border:1px solid var(--line);
+    border-radius:14px; padding:6px; min-width:210px; display:none; z-index:20;
+    box-shadow:0 12px 32px rgba(0,0,0,.5)}
+  .dropdown.show{display:block}
+  .dropdown button{display:block; width:100%; text-align:left; background:transparent; border:none;
+    color:var(--txt); font-size:13px; font-weight:600; padding:10px 12px; border-radius:9px; cursor:pointer}
+  .dropdown button:hover{background:#273150}
+  .linkchip{font-size:11px; color:var(--cyan); margin-top:8px; font-weight:700}
+  /* ---- ideas ---- */
+  .tiers{display:grid; grid-template-columns:repeat(6,1fr); gap:10px}
+  @media(max-width:800px){.tiers{grid-template-columns:repeat(3,1fr)}}
+  .tier{background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:12px; min-height:180px}
+  .tier h3{font-size:22px; font-weight:900; text-align:center; margin-bottom:10px}
+  .tS h3{color:var(--gold); text-shadow:0 0 18px rgba(251,191,36,.6)}
+  .tA h3{color:var(--violet)} .tB h3{color:var(--cyan)} .tC h3{color:var(--green)}
+  .tD h3{color:var(--orange)} .tF h3{color:var(--red)}
+  .idea{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px;
+    font-size:12px; font-weight:700; margin-bottom:8px}
+  .idea small{display:block; color:var(--dim); font-weight:600; margin-top:4px}
+  .verdict{margin-top:12px; font-size:13px; color:var(--dim); text-align:center}
+  .verdict b{color:var(--gold)}
+  /* ---- timeline / graph ---- */
+  .trow{display:flex; align-items:center; gap:12px; margin-bottom:12px}
+  .trow .lbl{width:220px; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .trow .bar{flex:1; margin:0}
+  .trow .pct{width:44px; text-align:right; font-size:12px; color:var(--dim); font-weight:700}
+  #graph{width:100%; height:400px; display:block; border-radius:16px; background:#0b0e14}
+  .legend{font-size:12px; color:var(--dim); margin-top:10px; text-align:center}
+  /* ---- overlay spoof ---- */
+  #spofoverlay{position:fixed; top:18px; left:50%; transform:translateX(-50%) translateY(-140%);
+    width:min(640px,92vw); background:rgba(20,27,44,.97); border:1px solid var(--cyan);
+    border-radius:16px; padding:14px 18px; z-index:99; transition:transform .3s cubic-bezier(.2,1.4,.4,1);
+    box-shadow:0 0 40px rgba(34,211,238,.3); display:flex; gap:12px; align-items:center}
+  #spofoverlay.show{transform:translateX(-50%) translateY(0)}
+  #spofoverlay input{flex:1; background:transparent; border:none; outline:none; color:var(--txt); font-size:16px}
+  #spofoverlay .orb{width:16px; height:16px; border-radius:50%; background:var(--cyan);
+    box-shadow:0 0 12px var(--cyan); animation:blink 1s infinite}
+  .catch{display:flex;align-items:center;gap:10px;margin:14px 4px 10px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim)}
+  .cdot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .projcard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-bottom:12px;cursor:pointer;transition:.2s}
+  .projcard:hover{border-color:#33415f}
+  .projcard h4{font-size:16px;font-weight:800}
+  .projcard .sub{font-size:12px;color:var(--dim);font-weight:600;margin:5px 0 9px}
+  .projcard .bar{margin:0 0 8px}
+  .ptask{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;font-size:13px;font-weight:600}
+  .ptask:hover{background:#1b2438}
+  .sdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .ptask .p{margin-left:auto;color:var(--dim);font-size:12px;flex-shrink:0}
+  .kbd{font-size:11px; background:#273150; padding:3px 8px; border-radius:6px; color:var(--dim); font-weight:700}
+  footer{text-align:center; color:var(--dim); font-size:12px; margin-top:26px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">🎙️ Voice<span>Tasker</span></div>
+    <div class="live" id="livepill"><span class="dot"></span> <span id="livetext">LIVE · local demo</span></div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-v="tasks">🧱 Tasks</button>
+    <button class="tab" data-v="projects">📁 Projects</button>
+    <button class="tab" data-v="timeline">⏱️ Timeline</button>
+    <button class="tab" data-v="ideas">🏆 Ideas</button>
+    <button class="tab" data-v="graph">🕸️ Graph</button>
+  </nav>
+
+  <div class="panel">
+    <canvas id="viz"></canvas>
+    <div class="caption">> <span id="cap"></span><span class="caret"></span></div>
+    <div class="vizrow">
+      <button class="btn primary" id="replay">▶ Replay voice demo</button>
+      <button class="btn" id="micbtn">🎤 Use my real mic</button>
+      <button class="btn" id="overlaybtn">⌨️ Win+Space overlay</button>
+    </div>
+  </div>
+
+  <div class="view active" id="v-tasks"><div id="tasklist"></div></div>
+
+  <div class="view" id="v-projects"><div class="panel"><div class="proj">📁 Projects · grouped by category</div><div id="projectlist"></div></div></div>
+
+  <div class="view" id="v-timeline">
+    <div class="panel"><div class="proj">⏱️ Time · progress vs goal</div><div id="timelines"></div></div>
+  </div>
+
+  <div class="view" id="v-ideas">
+    <div class="panel">
+      <div class="tiers">
+        <div class="tier tS"><h3>S</h3><div class="idea">Voice task tracker itself<small>9.4 · novelty 10</small></div></div>
+        <div class="tier tA"><h3>A</h3><div class="idea">BrowserUse MCP server<small>8.1 · leverage 9</small></div></div>
+        <div class="tier tB"><h3>B</h3><div class="idea">Tab janitor extension<small>6.2 · fit 7</small></div></div>
+        <div class="tier tC"><h3>C</h3><div class="idea">Meal-planner bot<small>4.8 · meh energy</small></div><div class="idea">Desk plant monitor<small>4.1</small></div></div>
+        <div class="tier tD"><h3>D</h3><div class="idea">Rewrite in Rust<small>3.2 · feasibility 2</small></div></div>
+        <div class="tier tF"><h3>F</h3><div class="idea">Blockchain todo list<small>1.4 · dupe</small></div></div>
+      </div>
+      <div class="verdict">TIER_JUDGE verdict: <b>"Rare + shippable with your stack."</b> · next: scaffold the STT loop</div>
+    </div>
+  </div>
+
+  <div class="view" id="v-graph">
+    <div class="panel"><canvas id="graph"></canvas>
+      <div class="legend">● size = priority · color = status · ─▶ depends-on · ── same project</div>
+    </div>
+  </div>
+
+  <footer>ADHD-Voice-Tasker · interactive mock — Deepgram + Cerebras/Groq/Gateway · Win+Space anywhere</footer>
+</div>
+
+<div id="spofoverlay"><span class="orb"></span><input id="spofinput" placeholder="Speak or type a task…  (Enter to capture)"><span class="kbd">Win+Space</span></div>
+
+<script>
+/* ================= Visualizer (demo oscillator + optional real mic) ============= */
+const viz = document.getElementById('viz'), vx = viz.getContext('2d');
+const HEAT = ['#12071f','#2b0f54','#4c1d95','#0ea5e9','#67e8f9','#fef08a'];
+let VW=0, VH=0, analyser=null, freq=null, wave=null, demoPhase=0, vt=0, energy=0.15, speechBoost=0;
+function vizResize(){
+  const dpr = Math.min(2, window.devicePixelRatio||1);
+  const r = viz.getBoundingClientRect();
+  VW = viz.width = r.width*dpr; VH = viz.height = r.height*dpr;
+}
+window.addEventListener('resize', vizResize); vizResize();
+function sampleEnergy(){
+  if(analyser){
+    analyser.getByteTimeDomainData(wave);
+    let s=0; for(let i=0;i<wave.length;i+=4){const v=(wave[i]-128)/128; s+=v*v;}
+    return Math.min(1, Math.sqrt(s/(wave.length/4))*2.4);
+  }
+  demoPhase += 0.016;
+  const burst = Math.sin(demoPhase*0.9) > 0.35 ? 0.55 : 0.12;
+  return Math.min(1, burst + speechBoost + 0.07*Math.sin(demoPhase*7));
+}
+function drawViz(){
+  vt += 0.016; energy = sampleEnergy();
+  const half = VH*0.58, mid = half/2;
+  vx.fillStyle = '#0b0e14'; vx.fillRect(0,0,VW,VH);
+  // waveform ribbons
+  const cols = ['#22d3ee','#a78bfa','#f472b6'];
+  for(let L=0; L<3; L++){
+    vx.beginPath(); vx.strokeStyle = cols[L]; vx.globalAlpha = 0.9-L*0.25;
+    vx.lineWidth = (3-L)*(VW/900);
+    for(let x=0; x<=VW; x+=4){
+      const p = x/VW; let y;
+      if(analyser){ y = mid + ((wave[(p*(wave.length-1))|0]-128)/128)*mid*(1-L*0.22); }
+      else { y = mid + Math.sin(p*9 + vt*(2+L*0.7) + L*2.1)*mid*0.55*(0.3+energy)*(1-L*0.2); }
+      x===0 ? vx.moveTo(x,y) : vx.lineTo(x,y);
+    }
+    vx.stroke();
+  }
+  vx.globalAlpha = 1;
+  // spectrogram strip (bottom)
+  const top = VH*0.62, bins = 42, bh = (VH-top)/bins;
+  for(let i=0;i<bins;i++){
+    let m = analyser ? freq[2+((Math.pow(i/bins,1.6)*400)|0)]/255
+      : energy*Math.exp(-i/(bins*0.4))*(0.6+0.4*Math.sin(vt*5+i));
+    vx.fillStyle = HEAT[Math.min(5,(m*6)|0)];
+    vx.globalAlpha = 0.85;
+    vx.fillRect(0, top+i*bh, VW*(0.25+m*0.75), bh+0.5);
+  }
+  vx.globalAlpha = 1;
+  // orb
+  const cx=VW/2, cy=VH*0.30, r=Math.min(VW,VH)*0.085*(1+energy*0.5);
+  const g = vx.createRadialGradient(cx,cy,0,cx,cy,r*3);
+  g.addColorStop(0,'rgba(34,211,238,0.9)'); g.addColorStop(0.4,'rgba(167,139,250,0.35)');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  vx.fillStyle=g; vx.beginPath(); vx.arc(cx,cy,r*3,0,7); vx.fill();
+  vx.fillStyle='#e0faff'; vx.beginPath(); vx.arc(cx,cy,r*0.45,0,7); vx.fill();
+  requestAnimationFrame(drawViz);
+}
+requestAnimationFrame(drawViz);
+document.getElementById('micbtn').onclick = async (e) => {
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({audio:true});
+    const ac = new (window.AudioContext||window.webkitAudioContext)();
+    const src = ac.createMediaStreamSource(s);
+    analyser = ac.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.82;
+    src.connect(analyser);
+    freq = new Uint8Array(analyser.frequencyBinCount); wave = new Uint8Array(analyser.fftSize);
+    e.target.textContent = '🎤 Mic live — talk!';
+  }catch{ e.target.textContent = '🎤 Mic blocked — demo mode'; }
+};
+
+/* ================= Scripted voice → tasks demo ================= */
+const STEPS = [
+  { text:"ok so first I need to reinstall docker, it's totally borked…",
+    spawn:[{t:"Reinstall Docker", c:"ops", chain:1, chainOf:3, pct:60, el:"12/20m"}] },
+  { text:"then grab all my api keys and env vars and base urls together…",
+    spawn:[{t:"Grab API keys + ENV vars + base URLs", c:"ops", chain:2, chainOf:3, dep:"Reinstall Docker", pct:0, el:"0/15m"}] },
+  { text:"and THEN I can finally set up librechat on top of all that.",
+    spawn:[{t:"Set up LibreChat", c:"dev", chain:3, chainOf:3, dep:"API keys…", pct:0, el:"0/45m"}] },
+  { text:"oh also — research browser automation, build the BrowserUse MCP, test it…",
+    spawn:[
+      {t:"Research the best way to do browser automation", c:"research", pct:80, el:"32/40m", proj:"Browser Automation"},
+      {t:"Build and setup BrowserUse MCP Server", c:"dev", dep:"Research…", pct:10, el:"5/50m", proj:"Browser Automation"},
+      {t:"Test automations", c:"dev", dep:"BrowserUse MCP", pct:0, el:"0/30m", proj:"Browser Automation"},
+    ]},
+];
+const cap = document.getElementById('cap'), list = document.getElementById('tasklist');
+const CAT = {dev:"dev", ops:"ops", research:"research"};
+function cardHTML(d){
+  const dep = d.dep ? `<span class="dep">⛓ waits on: <small>${d.dep}</small></span>` : '';
+  return `<div class="check" onclick="this.classList.toggle('on');this.textContent=this.classList.contains('on')?'✓':'';this.closest('.card').classList.toggle('done')"></div>
+    <div class="body">
+      <div class="title">${d.t}</div>
+      <div class="meta"><span class="pill ${d.c}">${d.c}</span>
+        ${d.chain?`<span class="dep">${d.chain} → ${d.chainOf}</span>`:''}${dep}
+        <span class="time">⏱ ${d.el}</span><span class="time pctlbl">${d.pct}%</span></div>
+      <div class="bar"><i style="width:${d.pct}%"></i></div>
+      <div class="linkchip"></div>
+    </div>
+    <div class="acts">
+      <button class="iconbtn" title="start/pause" onclick="tick(this)">▶</button>
+      <span class="menu"><button class="iconbtn" onclick="this.nextElementSibling.classList.toggle('show')">⋮</button>
+        <span class="dropdown">
+          <button onclick="send(this,'Hermes Agent')">🚀 Send to Hermes Agent</button>
+          <button onclick="send(this,'Claude Code')">🤖 Send to Claude Code</button>
+        </span></span>
+    </div>`;
+}
+function spawnCard(d){
+  let proj = d.proj || 'Homelab revival';
+  let sec = document.getElementById('sec-'+proj.replace(/\W/g,''));
+  if(!sec){
+    sec = document.createElement('div');
+    sec.id = 'sec-'+proj.replace(/\W/g,'');
+    sec.innerHTML = `<div class="proj">📦 Project: <b>${proj}</b></div>`;
+    list.appendChild(sec);
+  }
+  const el = document.createElement('div');
+  el.className = 'card pop'; el.innerHTML = cardHTML(d);
+  el.dataset.title = d.t; el.dataset.pct = d.pct; el.dataset.c = d.c || 'general';
+  sec.appendChild(el);
+  renderTimeline();
+  renderProjects();
+}
+function typeStep(i){
+  if(i >= STEPS.length){ cap.innerHTML += ' <span style="color:#34d399">✓ all captured</span>'; return; }
+  const s = STEPS[i]; let j = 0; cap.textContent = '';
+  speechBoost = 0.35;
+  const iv = setInterval(()=>{
+    cap.textContent = s.text.slice(0, ++j);
+    if(j >= s.text.length){
+      clearInterval(iv); speechBoost = 0;
+      cap.innerHTML += ' <span style="color:#34d399">✓</span>';
+      s.spawn.forEach((d,k)=> setTimeout(()=>spawnCard(d), 350+k*450));
+      setTimeout(()=>typeStep(i+1), 350 + s.spawn.length*450 + 900);
+    }
+  }, 26);
+}
+document.getElementById('replay').onclick = ()=>{ list.innerHTML=''; document.getElementById('timelines').innerHTML=''; typeStep(0); };
+function tick(btn){
+  const card = btn.closest('.card'); const bar = card.querySelector('.bar i');
+  const lbl = card.querySelector('.pctlbl');
+  let p = parseInt(card.dataset.pct||'0');
+  if(btn.dataset.on){ delete btn.dataset.on; btn.textContent='▶'; clearInterval(+btn.dataset.iv); return; }
+  btn.dataset.on = '1'; btn.textContent='⏸';
+  btn.dataset.iv = setInterval(()=>{ p=Math.min(100,p+1); card.dataset.pct=p;
+    bar.style.width=p+'%'; lbl.textContent=p+'%'; if(p>=100){clearInterval(+btn.dataset.iv); btn.textContent='▶';} }, 120);
+}
+function send(btn, target){
+  btn.closest('.dropdown').classList.remove('show');
+  const card = btn.closest('.card');
+  card.querySelector('.linkchip').textContent = `⚡ in-progress → ${target} · session #a3f9 · 3 files`;
+  card.style.borderColor = '#22d3ee';
+}
+
+/* ================= Tabs / Timeline / Graph ================= */
+document.querySelectorAll('.tab').forEach(b=> b.onclick = ()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById('v-'+b.dataset.v).classList.add('active');
+  if(b.dataset.v==='graph') graphResize();
+  if(b.dataset.v==='projects') renderProjects();
+});
+function renderTimeline(){
+  const rows = [...document.querySelectorAll('.card')].map(c=>({
+    t:c.dataset.title, p:c.dataset.pct||'0'}));
+  document.getElementById('timelines').innerHTML = rows.map(r=>
+    `<div class="trow"><div class="lbl">${r.t}</div><div class="bar"><i style="width:${r.p}%"></i></div><div class="pct">${r.p}%</div></div>`).join('')
+    || '<div style="color:var(--dim);font-size:13px">Press ▶ Replay to generate timeline data…</div>';
+}
+renderTimeline();
+const g = document.getElementById('graph'), gx = g.getContext('2d');
+let GW=0, GH=0;
+function graphResize(){
+  const dpr = Math.min(2, window.devicePixelRatio||1);
+  const r = g.getBoundingClientRect(); GW = g.width = r.width*dpr; GH = g.height = r.height*dpr;
+}
+window.addEventListener('resize', graphResize); graphResize();
+const NODES = [
+  {id:'dev', x:.12,y:.3, r:14, c:'#22d3ee', l:'dev'},
+  {id:'ops', x:.12,y:.72, r:14, c:'#a78bfa', l:'ops'},
+  {id:'p1', x:.38,y:.3, r:20, c:'#f472b6', l:'Browser Auto'},
+  {id:'p2', x:.38,y:.72, r:20, c:'#a78bfa', l:'Homelab'},
+  {id:'t1', x:.66,y:.16, r:11, c:'#34d399', l:'Research ✓'},
+  {id:'t2', x:.66,y:.36, r:13, c:'#22d3ee', l:'MCP build'},
+  {id:'t3', x:.88,y:.30, r:10, c:'#8b94ad', l:'Test'},
+  {id:'t4', x:.62,y:.62, r:12, c:'#34d399', l:'Docker'},
+  {id:'t5', x:.78,y:.74, r:12, c:'#22d3ee', l:'API keys'},
+  {id:'t6', x:.92,y:.60, r:12, c:'#8b94ad', l:'LibreChat'},
+];
+const EDGES = [['dev','p1',0],['ops','p2',0],['p1','t1',0],['p1','t2',0],['t2','t3',1],
+  ['p2','t4',0],['t4','t5',1],['t5','t6',1]];
+let gp = 0;
+function drawGraph(){
+  gp += 0.02;
+  gx.fillStyle = '#0b0e14'; gx.fillRect(0,0,GW,GH);
+  const P = id => { const n = NODES.find(n=>n.id===id); return [n.x*GW, n.y*GH]; };
+  EDGES.forEach(([a,b,dep])=>{
+    const [x1,y1]=P(a), [x2,y2]=P(b);
+    gx.strokeStyle = dep ? '#22d3ee' : '#3b4763'; gx.lineWidth = dep?2.5:1.5;
+    gx.setLineDash(dep?[]:[5,5]);
+    gx.beginPath(); gx.moveTo(x1,y1); gx.lineTo(x2,y2); gx.stroke(); gx.setLineDash([]);
+    if(dep){ // pulse dot travelling the edge
+      const t = (gp%1), px = x1+(x2-x1)*t, py = y1+(y2-y1)*t;
+      gx.fillStyle = '#e0faff'; gx.beginPath(); gx.arc(px,py,3.5,0,7); gx.fill();
+    }
+  });
+  NODES.forEach(n=>{
+    const x=n.x*GW, y=n.y*GH;
+    gx.shadowColor = n.c; gx.shadowBlur = 16;
+    gx.fillStyle = n.c; gx.beginPath(); gx.arc(x,y,n.r,0,7); gx.fill();
+    gx.shadowBlur = 0;
+    gx.fillStyle = '#e8edf7'; gx.font = `700 ${Math.max(11,GW/70)}px system-ui`;
+    gx.textAlign = 'center'; gx.fillText(n.l, x, y+n.r+16);
+  });
+  requestAnimationFrame(drawGraph);
+}
+requestAnimationFrame(drawGraph);
+
+/* ================= Overlay spoof ================= */
+const spof = document.getElementById('spofoverlay'), spofin = document.getElementById('spofinput');
+document.getElementById('overlaybtn').onclick = ()=>{ spof.classList.add('show'); spofin.focus(); };
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') spof.classList.remove('show');
+  if((e.metaKey||e.ctrlKey) && e.code==='Space'){ e.preventDefault(); spof.classList.toggle('show'); spofin.focus(); }
+});
+spofin.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && spofin.value.trim()){
+    const v = spofin.value.trim();
+    if(typeof BACKEND !== 'undefined' && BACKEND){
+      fetch(API+'/api/capture',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({text:v})});
+    } else spawnCard({t:v, c:'dev', pct:0, el:'0/25m', proj:'Inbox'});
+    spofin.value=''; spof.classList.remove('show');
+    document.querySelector('[data-v="tasks"]').click();
+  }
+});
+
+/* ============ Projects view: grouped by category → project ============ */
+const CATCOL = {dev:'#22d3ee', ops:'#a78bfa', research:'#f472b6', personal:'#34d399', admin:'#fbbf24', general:'#8b94ad', inbox:'#8b94ad'};
+function collectTasks(){
+  const out = [];
+  document.querySelectorAll('#tasklist > div[id^="sec-"]').forEach(sec=>{
+    const h = sec.querySelector('.proj b');
+    const proj = h ? h.textContent : 'Inbox';
+    sec.querySelectorAll('.card').forEach(c=> out.push({
+      title: c.dataset.title||'?', c: c.dataset.c||'general',
+      pct: parseInt(c.dataset.pct||'0'), proj }));
+  });
+  return out;
+}
+function renderProjects(){
+  const groups = {};
+  collectTasks().forEach(t=>{
+    (groups[t.c] = groups[t.c]||{});
+    (groups[t.c][t.proj] = groups[t.c][t.proj]||[]).push(t);
+  });
+  const el = document.getElementById('projectlist');
+  const cats = Object.keys(groups);
+  if(!cats.length){ el.innerHTML = '<div style="color:var(--dim);font-size:13px">No tasks yet — press Replay voice demo.</div>'; return; }
+  el.innerHTML = cats.map(cat=>{
+    const projs = Object.entries(groups[cat]);
+    const col = CATCOL[cat]||'#8b94ad';
+    const n = projs.reduce((a,[,ts])=>a+ts.length,0);
+    return `<div class="catch"><span class="cdot" style="background:${col};box-shadow:0 0 8px ${col}"></span>${cat} · ${projs.length} project(s) · ${n} task(s)</div>` +
+    projs.map(([name, ts])=>{
+      const avg = Math.round(ts.reduce((a,t)=>a+t.pct,0)/ts.length);
+      const rows = ts.map(t=>{
+        const dot = t.pct>=100?'var(--green)':t.pct>0?'var(--cyan)':'#3b4763';
+        return `<div class="ptask"><span class="sdot" style="background:${dot}"></span><span>${t.title}</span><span class="p">${t.pct}%</span></div>`;
+      }).join('');
+      return `<div class="projcard" onclick="document.querySelector('[data-v=tasks]').click()"><h4>${name}</h4><div class="sub">${ts.length} task(s) · ${avg}% avg progress</div><div class="bar"><i style="width:${avg}%"></i></div>${rows}</div>`;
+    }).join('');
+  }).join('');
+}
+
+/* ============ Backend link (FastAPI) — falls back to local demo ============ */
+const API = ''; // same origin: uvicorn serves this file at /
+let BACKEND = false, WS = null;
+const id2title = {}, apiCards = {};
+async function backendInit(){
+  try{
+    const h = await (await fetch(API+'/api/health')).json();
+    if(!h || !h.mode) throw 0;
+    BACKEND = true;
+    document.getElementById('livetext').textContent = `LIVE · ${h.mode.stt} · ${h.mode.llm}`;
+    const tasks = await (await fetch(API+'/api/tasks')).json();
+    tasks.forEach(t=>{ id2title[t.id]=t.title; });
+    tasks.forEach(t=> upsertApiCard(t));
+    renderTimeline();
+    WS = new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
+    WS.onmessage = (ev)=>{
+      const m = JSON.parse(ev.data);
+      if(m.type==='transcript'){
+        cap.textContent = m.text;
+        if(m.kind==='partial'){ speechBoost = 0.35; }
+        else { cap.innerHTML += ' <span style="color:#34d399">✓</span>'; speechBoost = 0; }
+      } else if(m.type==='task.upsert'){
+        id2title[m.task.id]=m.task.title; upsertApiCard(m.task); renderTimeline();
+        document.querySelectorAll('#tasklist .card').forEach(refreshDepLabels);
+      }
+    };
+    document.getElementById('replay').onclick = async ()=>{
+      await fetch(API+'/api/simulate/start', {method:'POST'});
+    };
+    if(!tasks.length) await fetch(API+'/api/simulate/start', {method:'POST'});
+  }catch(e){ setTimeout(()=>typeStep(0), 900); } // no backend → local scripted demo
+}
+function upsertApiCard(t){
+  const proj = t.project_name || 'Inbox';
+  let sec = document.getElementById('sec-'+String(proj).replace(/\W/g,''));
+  if(!sec){ sec=document.createElement('div'); sec.id='sec-'+String(proj).replace(/\W/g,'');
+    sec.innerHTML=`<div class="proj">📦 Project: <b>${proj}</b></div>`; list.appendChild(sec); }
+  const pct = Math.min(100, Math.round((t.elapsed_s/((t.estimate_min||25)*60))*100))||0;
+  let el = apiCards[t.id];
+  if(!el){ el=document.createElement('div'); el.className='card pop'; apiCards[t.id]=el; sec.appendChild(el); }
+  el.dataset.title=t.title; el.dataset.pct=pct; el.dataset.deps=JSON.stringify(t.deps||[]);
+  el.dataset.order=t.dep_order||'';
+  el.dataset.c=t.category||'general';
+  el.innerHTML = cardHTML({t:t.title, c:t.category||'general', chain:null,
+    dep:'', pct, el:`${Math.round((t.elapsed_s||0)/60)}/${t.estimate_min||25}m`});
+  refreshDepLabels(el);
+  renderProjects();
+}
+function refreshDepLabels(el){
+  const deps = JSON.parse(el.dataset.deps||'[]');
+  const known = deps.map(d=>id2title[d]).filter(Boolean);
+  const meta = el.querySelector('.meta'); if(!meta) return;
+  meta.querySelectorAll('.dep-live').forEach(n=>n.remove());
+  if(el.dataset.order) meta.insertAdjacentHTML('beforeend',
+    `<span class="dep dep-live">#${el.dataset.order} in order</span>`);
+  if(known.length) meta.insertAdjacentHTML('beforeend',
+    `<span class="dep dep-live">⛓ waits on: <small>${known.join(', ')}</small></span>`);
+}
+backendInit();
+</script>
+</body>
+</html>
