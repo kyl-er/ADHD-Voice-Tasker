@@ -64,8 +64,8 @@ def header(d, W):
 
 
 def tabs(d, W, active=0):
-    labels = ["Tasks", "Timeline", "Ideas", "Graph"]
-    tw = (W - 80) / 4
+    labels = ["Tasks", "Projects", "Timeline", "Ideas", "Graph"]
+    tw = (W - 80) / len(labels)
     d.rounded_rectangle([40, 80, W - 40, 132], 16, fill=PANEL, outline=LINE, width=1)
     for i, lab in enumerate(labels):
         cx = 40 + tw * i
@@ -187,7 +187,7 @@ def render_ideas():
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
     header(d, W)
-    tabs(d, W, 2)
+    tabs(d, W, 3)
     d.rounded_rectangle([40, 148, W - 40, 488], 24, fill=PANEL, outline=LINE, width=1)
     cw = (W - 80 - 28 * 7) / 6
     for i, (tier, col, ideas) in enumerate(tiers):
@@ -219,7 +219,7 @@ def render_graph():
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
     header(d, W)
-    tabs(d, W, 3)
+    tabs(d, W, 4)
     gx, gy, gw, gh = 60, 166, W - 120, 300
     d.rounded_rectangle([40, 148, W - 40, 496], 24, fill=PANEL, outline=LINE, width=1)
     d.rounded_rectangle([gx, gy, gx + gw, gy + gh], 16, fill=(11, 14, 20))
@@ -238,12 +238,58 @@ def render_graph():
     print("wrote graph.png")
 
 
+def render_projects():
+    W, H = 1280, 800
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    header(d, W)
+    tabs(d, W, 1)
+    d.rounded_rectangle([40, 148, W - 40, 736], 24, fill=PANEL, outline=LINE, width=1)
+    d.text((60, 168), "PROJECTS · GROUPED BY CATEGORY", font=F_SMALL, fill=DIM)
+    sections = [
+        ("dev", CYAN, [("Browser Automation",
+                        [("Research browser automation", 80), ("Build the BrowserUse MCP", 10),
+                         ("Test automations", 0)])]),
+        ("ops", VIOLET, [("Homelab revival",
+                          [("Reinstall docker", 12), ("Grab all my api keys and env vars…", 0),
+                           ("Set up librechat on top of all that", 0)])]),
+    ]
+    y = 198
+    for cat, col, projs in sections:
+        d.ellipse([60, y, 72, y + 12], fill=col)
+        n = sum(len(ts) for _, ts in projs)
+        d.text((82, y - 3), f"{cat.upper()} · {len(projs)} PROJECT(S) · {n} TASK(S)",
+               font=F_SMALL, fill=DIM)
+        y += 30
+        for name, ts in projs:
+            avg = round(sum(p for _, p in ts) / len(ts))
+            cardh = 104 + len(ts) * 34
+            d.rounded_rectangle([60, y, W - 60, y + cardh], 18, fill=CARD, outline=LINE, width=1)
+            d.text((80, y + 14), name, font=F_BODY, fill=TXT)
+            d.text((80, y + 36), f"{len(ts)} task(s) · {avg}% avg progress", font=F_TINY, fill=DIM)
+            d.rounded_rectangle([80, y + 58, W - 80, y + 67], 4, fill=TRACK)
+            if avg > 0:
+                d.rounded_rectangle([80, y + 58, 80 + (W - 160) * avg / 100, y + 67], 4, fill=CYAN)
+            ry = y + 78
+            for title, pct in ts:
+                dot = GREEN if pct >= 100 else (CYAN if pct > 0 else (59, 71, 99))
+                d.ellipse([80, ry + 7, 89, ry + 16], fill=dot)
+                d.text((100, ry + 3), title, font=F_TINY, fill=TXT)
+                d.text((W - 80, ry + 3), f"{pct}%", font=F_TINY, fill=DIM, anchor="ra")
+                ry += 34
+            y += cardh + 14
+    d.text((W / 2, 762), "click a project to jump to its tasks", font=F_TINY, fill=DIM, anchor="ma")
+    img.save(OUT / "projects.png")
+    print("wrote projects.png")
+
+
 def main():
     for stale in OUT.glob("*.svg"):
         stale.unlink()
     render_tasks()
     render_ideas()
     render_graph()
+    render_projects()
 
 
 if __name__ == "__main__":

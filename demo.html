@@ -119,6 +119,17 @@
   #spofoverlay input{flex:1; background:transparent; border:none; outline:none; color:var(--txt); font-size:16px}
   #spofoverlay .orb{width:16px; height:16px; border-radius:50%; background:var(--cyan);
     box-shadow:0 0 12px var(--cyan); animation:blink 1s infinite}
+  .catch{display:flex;align-items:center;gap:10px;margin:14px 4px 10px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim)}
+  .cdot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .projcard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-bottom:12px;cursor:pointer;transition:.2s}
+  .projcard:hover{border-color:#33415f}
+  .projcard h4{font-size:16px;font-weight:800}
+  .projcard .sub{font-size:12px;color:var(--dim);font-weight:600;margin:5px 0 9px}
+  .projcard .bar{margin:0 0 8px}
+  .ptask{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;font-size:13px;font-weight:600}
+  .ptask:hover{background:#1b2438}
+  .sdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .ptask .p{margin-left:auto;color:var(--dim);font-size:12px;flex-shrink:0}
   .kbd{font-size:11px; background:#273150; padding:3px 8px; border-radius:6px; color:var(--dim); font-weight:700}
   footer{text-align:center; color:var(--dim); font-size:12px; margin-top:26px}
 </style>
@@ -132,6 +143,7 @@
 
   <nav class="tabs">
     <button class="tab active" data-v="tasks">🧱 Tasks</button>
+    <button class="tab" data-v="projects">📁 Projects</button>
     <button class="tab" data-v="timeline">⏱️ Timeline</button>
     <button class="tab" data-v="ideas">🏆 Ideas</button>
     <button class="tab" data-v="graph">🕸️ Graph</button>
@@ -148,6 +160,8 @@
   </div>
 
   <div class="view active" id="v-tasks"><div id="tasklist"></div></div>
+
+  <div class="view" id="v-projects"><div class="panel"><div class="proj">📁 Projects · grouped by category</div><div id="projectlist"></div></div></div>
 
   <div class="view" id="v-timeline">
     <div class="panel"><div class="proj">⏱️ Time · progress vs goal</div><div id="timelines"></div></div>
@@ -297,9 +311,10 @@ function spawnCard(d){
   }
   const el = document.createElement('div');
   el.className = 'card pop'; el.innerHTML = cardHTML(d);
-  el.dataset.title = d.t; el.dataset.pct = d.pct;
+  el.dataset.title = d.t; el.dataset.pct = d.pct; el.dataset.c = d.c || 'general';
   sec.appendChild(el);
   renderTimeline();
+  renderProjects();
 }
 function typeStep(i){
   if(i >= STEPS.length){ cap.innerHTML += ' <span style="color:#34d399">✓ all captured</span>'; return; }
@@ -339,6 +354,7 @@ document.querySelectorAll('.tab').forEach(b=> b.onclick = ()=>{
   b.classList.add('active');
   document.getElementById('v-'+b.dataset.v).classList.add('active');
   if(b.dataset.v==='graph') graphResize();
+  if(b.dataset.v==='projects') renderProjects();
 });
 function renderTimeline(){
   const rows = [...document.querySelectorAll('.card')].map(c=>({
@@ -415,6 +431,44 @@ spofin.addEventListener('keydown', e=>{
   }
 });
 
+/* ============ Projects view: grouped by category → project ============ */
+const CATCOL = {dev:'#22d3ee', ops:'#a78bfa', research:'#f472b6', personal:'#34d399', admin:'#fbbf24', general:'#8b94ad', inbox:'#8b94ad'};
+function collectTasks(){
+  const out = [];
+  document.querySelectorAll('#tasklist > div[id^="sec-"]').forEach(sec=>{
+    const h = sec.querySelector('.proj b');
+    const proj = h ? h.textContent : 'Inbox';
+    sec.querySelectorAll('.card').forEach(c=> out.push({
+      title: c.dataset.title||'?', c: c.dataset.c||'general',
+      pct: parseInt(c.dataset.pct||'0'), proj }));
+  });
+  return out;
+}
+function renderProjects(){
+  const groups = {};
+  collectTasks().forEach(t=>{
+    (groups[t.c] = groups[t.c]||{});
+    (groups[t.c][t.proj] = groups[t.c][t.proj]||[]).push(t);
+  });
+  const el = document.getElementById('projectlist');
+  const cats = Object.keys(groups);
+  if(!cats.length){ el.innerHTML = '<div style="color:var(--dim);font-size:13px">No tasks yet — press Replay voice demo.</div>'; return; }
+  el.innerHTML = cats.map(cat=>{
+    const projs = Object.entries(groups[cat]);
+    const col = CATCOL[cat]||'#8b94ad';
+    const n = projs.reduce((a,[,ts])=>a+ts.length,0);
+    return `<div class="catch"><span class="cdot" style="background:${col};box-shadow:0 0 8px ${col}"></span>${cat} · ${projs.length} project(s) · ${n} task(s)</div>` +
+    projs.map(([name, ts])=>{
+      const avg = Math.round(ts.reduce((a,t)=>a+t.pct,0)/ts.length);
+      const rows = ts.map(t=>{
+        const dot = t.pct>=100?'var(--green)':t.pct>0?'var(--cyan)':'#3b4763';
+        return `<div class="ptask"><span class="sdot" style="background:${dot}"></span><span>${t.title}</span><span class="p">${t.pct}%</span></div>`;
+      }).join('');
+      return `<div class="projcard" onclick="document.querySelector('[data-v=tasks]').click()"><h4>${name}</h4><div class="sub">${ts.length} task(s) · ${avg}% avg progress</div><div class="bar"><i style="width:${avg}%"></i></div>${rows}</div>`;
+    }).join('');
+  }).join('');
+}
+
 /* ============ Backend link (FastAPI) — falls back to local demo ============ */
 const API = ''; // same origin: uvicorn serves this file at /
 let BACKEND = false, WS = null;
@@ -457,9 +511,11 @@ function upsertApiCard(t){
   if(!el){ el=document.createElement('div'); el.className='card pop'; apiCards[t.id]=el; sec.appendChild(el); }
   el.dataset.title=t.title; el.dataset.pct=pct; el.dataset.deps=JSON.stringify(t.deps||[]);
   el.dataset.order=t.dep_order||'';
+  el.dataset.c=t.category||'general';
   el.innerHTML = cardHTML({t:t.title, c:t.category||'general', chain:null,
     dep:'', pct, el:`${Math.round((t.elapsed_s||0)/60)}/${t.estimate_min||25}m`});
   refreshDepLabels(el);
+  renderProjects();
 }
 function refreshDepLabels(el){
   const deps = JSON.parse(el.dataset.deps||'[]');

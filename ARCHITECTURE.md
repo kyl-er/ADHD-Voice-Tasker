@@ -198,6 +198,7 @@ Main web app (`ui/web/`, React + Vite + Tailwind):
 | Tab | What it shows |
 |---|---|
 | **Tasks** (default) | HUGE rounded-3xl cards (min-h 96px, chunky type), grouped by project, sorted by priority rank. Each card: checkbox, title, category pill, `1→2→3` dep badge, time bar (elapsed/estimate), ▶/⏸, `⋮` → **Send to agent…** |
+| **Projects** | Tasks grouped by category → project, avg progress, click-through to Tasks |
 | **Timeline** | Per-task + per-project time, progress vs goal, today's burn |
 | **Ideas** | S/A/B/C/D/F tier columns (see §9), drag between tiers = feedback signal |
 | **Graph** | Live knowledge graph: `category → project → task` + dep edges (see §10) |
