@@ -1,56 +1,105 @@
 # ADHD-Voice-Tasker 🎙️✅
 
-Talk out loud. Get organized. A voice-first task tracker for brains that
+**Talk out loud. Get organized.** A voice-first task tracker for brains that
 have 47 tabs open — literally and mentally.
 
-- 🎤 **Deepgram streaming STT** (Nova-3) turns rambling into transcripts live
-- ⚡ **Cerebras / Groq / LLM Gateway (DevPass)** fast-model loop extracts
-  tasks, categories, priorities, and dependencies in ~1s
-- 🌊 **Sine-wave + spectrogram TUI** plus a buttery `<VoiceVisualizer/>`
-  React module
-- 🧱 **Huge blocky to-do cards**, tabs for Timeline / Ideas (S–F tiers) /
-  Knowledge Graph
-- ⌨️ **Win+Space overlay** for quick capture anywhere (like Cowork launcher)
-- 🤖 **Send to agent**: Hermes Agent or Claude Code with one click
-- 🔔 **Windows toasts** nudge you about forgotten tasks
+Speak about what you're working on → streaming STT → an ultra-fast LLM loop
+extracts **tasks, projects, categories, priorities, dependencies, and ideas**
+in ~1 second, rendered as huge blocky cards with a live voice visualizer.
 
-## Start here
+![Tasks tab](screenshots/tasks.png)
 
-```bash
-python setup_wizard.py        # interactive setup: keys, defaults, .env, DB
-```
+## ✨ Features
 
-The wizard writes a gitignored `.env` (template: `.env.example`), verifies
-at least one STT + one LLM key is present, and optionally smoke-tests each
-provider. Re-run anytime; existing values are kept as defaults.
-
-| Command | What it does |
+| | |
 |---|---|
-| `python setup_wizard.py` | Full interactive setup |
-| `python setup_wizard.py --check` | Validate current `.env`, no prompts |
-| `python setup_wizard.py --test` | Validate + ping each configured provider |
+| 🎤 **Voice in** | Deepgram Nova-3 streaming STT (sub-300ms partials) + offline simulator |
+| ⚡ **Fast loop** | Cerebras / Groq / LLM Gateway (DevPass) router — LLM-first, heuristic fallback, zero keys needed for demo |
+| 🧱 **Tasks** | Huge rounded cards with category pills, `#n in order` + `⛓ waits on` dep badges, time bars, ▶ timers |
+| 📁 **Projects** | Tasks grouped by category → project, avg progress bars, click-through |
+| 🏆 **Ideas** | LangChain judge ranks every idea **S-tier → F-tier** with verdicts |
+| 🕸️ **Graph** | Live knowledge graph: category → project → task + dependency edges |
+| 🌊 **Visualizers** | Terminal sine-wave + spectrogram TUI *and* a 60fps canvas React module |
+| ⌨️ **Overlay** | Win+Space quick-capture bar (spec'd, Tauri shell in Phase 2) |
+| 🤖 **Dispatch** | Send any task to Hermes Agent or Claude Code → session link on the card |
+| 🔔 **Nudges** | Windows toasts for forgotten tasks ("Still on this?") |
 
-## Docs
+![Projects tab](screenshots/projects.png)
+![Ideas tab](screenshots/ideas.png)
+![Graph tab](screenshots/graph.png)
 
-- **`ARCHITECTURE.md`** — full system design (pipeline, models, UI, agents)
-- **`ROADMAP.md`** — phased build plan
-- **`docs/WINDOWS_OVERLAY.md`** — Win+Space overlay spec
-- **`docs/UI_MOCKUPS.md`** — ASCII mockups of every tab
-
-## Run (after setup)
+## 🚀 Quickstart
 
 ```bash
+git clone https://github.com/kyl-er/ADHD-Voice-Tasker.git
+cd ADHD-Voice-Tasker
+
+python setup_wizard.py        # interactive setup: keys, defaults, .env, DB
 pip install -r requirements.txt
-python -m src.tui.visualizer --demo    # TUI visualizer, no mic needed
-uvicorn src.api.server:app --port 8765 # backend (http://localhost:8765)
-cd ui/web && npm i && npm run dev      # frontend
+python -m uvicorn src.api.server:app --port 8765   # backend + UI at /
 ```
 
-## Keys you'll need
+No keys yet? No problem — the app runs fully offline with the
+**simulator + heuristic extractor**, and the UI auto-plays a voice session
+on first load. Add keys later via the wizard to go live:
 
-| Key | Where | Required? |
+| Key | Where | Used for |
 |---|---|---|
-| `DEEPGRAM_API_KEY` | https://console.deepgram.com ($200 free) | Yes (voice) |
-| `CEREBRAS_API_KEY` | https://cloud.cerebras.ai | One fast LLM |
-| `GROQ_API_KEY` | https://console.groq.com | One fast LLM |
-| `LLM_GATEWAY_API_KEY` | https://llmgateway.io (`llmgtwy_…`) | One fast LLM |
+| `DEEPGRAM_API_KEY` | https://console.deepgram.com ($200 free) | Streaming STT |
+| `CEREBRAS_API_KEY` | https://cloud.cerebras.ai | Hot loop (~1800 tok/s) |
+| `GROQ_API_KEY` | https://console.groq.com | Realtime turns (<100ms TTFT) |
+| `LLM_GATEWAY_API_KEY` | https://llmgateway.io (`llmgtwy_…`) | 200+ models, one endpoint |
+
+```bash
+python setup_wizard.py --check   # validate .env
+python setup_wizard.py --test    # validate + ping each provider
+python -m src.tui.visualizer --demo   # TUI sine/spectrogram (no mic needed)
+python -m pytest tests/ -q       # 10 tests
+```
+
+## 🧠 How it works
+
+```
+mic → VAD → Deepgram streaming → fast LLM (extract/categorize/dedup)
+        → smart LLM (deps DAG, clustering, S–F tiers) → SQLite + WebSocket fan-out
+        → Tasks / Projects / Timeline / Ideas / Graph · toasts · agent dispatch
+```
+
+Say *"first reinstall docker, then grab the api keys, and finally set up
+librechat"* → the pipeline builds a chained, project-grouped plan:
+
+```
+#1 Reinstall docker ──→ #2 Grab api keys… ──→ #3 Set up LibreChat   [Homelab revival]
+```
+
+Full design: **[ARCHITECTURE.md](ARCHITECTURE.md)** · build plan:
+**[ROADMAP.md](ROADMAP.md)** · overlay spec + UI mockups in **`docs/`**.
+
+## 📁 Repo map
+
+```
+├── setup_wizard.py        # CLI installer (start here)
+├── demo.html              # the UI (served by the backend at /)
+├── screenshots/           # rendered mockups + PIL generator
+├── src/
+│   ├── config.py          # typed .env loader + validation
+│   ├── providers/         # deepgram / cerebras / groq / gateway + router
+│   ├── voice/             # pipeline + offline heuristic extractor + simulator
+│   ├── tasks/             # models, sqlite store, deps DAG, ranker
+│   ├── ideas/             # LangChain S–F tier evaluator (+ heuristic)
+│   ├── notifications/     # Windows toast nudges
+│   ├── dispatch/          # Hermes + Claude Code SEND TO PROCESS
+│   ├── tui/               # Textual-style sine + spectrogram visualizer
+│   ├── api/               # FastAPI + WebSocket fan-out
+│   └── activity/          # Phase-4 ambient tracking (spec'd, not built)
+├── ui/web/                # <VoiceVisualizer/> React module (canvas, 60fps)
+└── tests/                 # 10 passing
+```
+
+## 🗺️ Status
+
+- ✅ **Phase 0** — design + foundation + wizard
+- ✅ **Phase 1** — live voice→task loop (simulator+heuristic, API+WS, wired UI)
+- 🔜 **Phase 2** — Timeline/Ideas/Graph as live views, Tauri overlay, toasts
+- 🔜 **Phase 3** — agent dispatch + smart-pass resolver
+- 📋 **Phase 4** — ambient activity tracking (designed, not started)
